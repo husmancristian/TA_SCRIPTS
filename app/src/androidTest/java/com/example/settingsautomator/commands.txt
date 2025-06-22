@@ -1,0 +1,14 @@
+./gradlew assembleDebug
+./gradlew assembleDebugAndroidTest
+
+adb install path/to/your/app-debug.apk
+adb install path/to/your/app-debug-androidTest.apk
+
+
+adb shell am instrument -w -e class com.example.yourapp.test.YourTestClass com.example.yourapp.test/androidx.test.runner.AndroidJUnitRunner
+
+
+
+
+
+
