@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# --- Test Suite Runner for macOS ---
+
+# The directory where your test scripts are located
+TEST_DIR="./tests"
+
+# Find all .scpt files in the directory, sorted by name (so 01, 02, etc.)
+# and store them in an array.
+mapfile -d '' test_files < <(find "$TEST_DIR" -name "*.scpt" -print0 | sort -z)
+
+# Keep track of failed tests
+failed_tests=0
+
+echo "▶️  Starting Test Suite..."
+echo "============================"
+
+# Loop through each test file and execute it
+for test_file in "${test_files[@]}"; do
+  echo -e "\nRunning test: $test_file"
+
+  # Run the AppleScript with osascript.
+  # The 'if' statement checks the exit code.
+  # We also capture the output of the script.
+  if output=$(osascript "$test_file" 2>&1); then
+    # Exit code was 0 (Success)
+    echo "✅  SUCCESS"
+    echo "   Output: $output"
+  else
+    # Exit code was not 0 (Failure)
+    echo "❌  FAILURE"
+    echo "   Error: $output"
+    failed_tests=$((failed_tests + 1))
+    
+    # Uncomment the next line if you want the suite to stop on the first failure
+    # echo -e "\n🛑  Aborting suite due to test failure."
+    # exit 1 
+  fi
+done
+
+echo "============================"
+
+# Final summary
+if [ "$failed_tests" -eq 0 ]; then
+  echo "✅  Test Suite Finished: All tests passed!"
+  exit 0
+else
+  echo "❌  Test Suite Finished: $failed_tests test(s) failed."
+  exit 1
+fi
