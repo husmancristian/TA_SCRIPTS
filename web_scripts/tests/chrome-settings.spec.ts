@@ -22,7 +22,7 @@ test.describe('Simplified Chrome Settings Tests (3rd Revision)', () => {
     }
 
     context = await chromium.launchPersistentContext(userDataDir, {
-      headless: false,
+      headless: true,
       args: launchArgs
     });
   });
