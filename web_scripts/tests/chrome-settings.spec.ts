@@ -13,17 +13,17 @@ test.describe('Simplified Chrome Settings Tests (3rd Revision)', () => {
     // --- This is the new conditional logic ---
     const launchArgs: string[] = [];
   
-    if (process.env.CONTAINER === 'true') {
-      console.log('Running inside Docker, applying sandbox args...');
-      launchArgs.push('--no-sandbox');
-      launchArgs.push('--disable-setuid-sandbox');
-      launchArgs.push('--disable-dev-shm-usage');
-      launchArgs.push('--disable-gpu');
-    }
+    // if (process.env.CONTAINER === 'true') {
+    //   console.log('Running inside Docker, applying sandbox args...');
+    //   launchArgs.push('--no-sandbox');
+    //   launchArgs.push('--disable-setuid-sandbox');
+    //   launchArgs.push('--disable-dev-shm-usage');
+    //   launchArgs.push('--disable-gpu');
+    // }
 
     context = await chromium.launchPersistentContext(userDataDir, {
-      headless: false,
-      args: launchArgs
+      headless: false
+      // args: launchArgs
     });
   });
 

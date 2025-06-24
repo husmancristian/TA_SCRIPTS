@@ -106,7 +106,7 @@ if __name__ == "__main__":
 
     web_scripts_dir = 'web_scripts'
     containerized = os.getenv('CONTAINER')
-    if(containerized):
+    if(containerized == 'true' ):
         # print(f"Running 'npm install' inside '{web_scripts_dir}'...", file=sys.stderr)
         npm_command = "npm install"
         
@@ -126,8 +126,11 @@ if __name__ == "__main__":
             sys.exit(1) # Exit immediately if dependencies can't be installed
             
         # print("'npm install' completed successfully.", file=sys.stderr)
+    
+        command = "xvfb-run --auto-servernum npx playwright test chrome-settings.spec.ts --reporter=json"
+    else:
+        command = "npx playwright test chrome-settings.spec.ts --reporter=json"
 
-    command = "npx playwright test chrome-settings.spec.ts --reporter=json"
     process = subprocess.run(
         command, 
         shell=True, 
