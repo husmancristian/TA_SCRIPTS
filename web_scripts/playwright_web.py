@@ -118,7 +118,7 @@ if __name__ == "__main__":
     #  Write stdout and stderr to playwright_output.log
     # ===================================================================
     log_filename = "playwright_output.log"
-    print(f"Writing Playwright output to {log_filename}...", file=sys.stderr)
+    # print(f"Writing Playwright output to {log_filename}...", file=sys.stderr)
     try:
         with open(log_filename, 'w', encoding='utf-8') as log_file:
             log_file.write("--- Playwright stdout ---\n")
