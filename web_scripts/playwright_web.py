@@ -113,7 +113,7 @@ if __name__ == "__main__":
         
     command = "npx playwright test chrome-settings.spec.ts --reporter=json"
     # print("Running Playwright tests...", file=sys.stderr)
-    process = subprocess.run(command, shell=True, capture_output=True, text=True)
+    process = subprocess.run(command, shell=True, capture_output=True, text=True, cwd='web_scripts')
 
     if process.returncode != 0 and not process.stdout:
         # print(f"Playwright execution failed with return code {process.returncode}.", file=sys.stderr)
