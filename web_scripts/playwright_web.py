@@ -33,7 +33,7 @@ def transform_playwright_result(playwright_json_str, details):
         "project": details.get("platform", "Unknown"),
         "details": details,
         "messages": ["Test suite initiated."],
-        "logs": "playwright_output.log",
+        "logs": "playwright_output.txt",
         "started_at": run_start_time.isoformat().replace('+00:00', 'Z'),
         "ended_at": run_end_time.isoformat().replace('+00:00', 'Z'),
         "duration_seconds": round(run_duration, 3),
