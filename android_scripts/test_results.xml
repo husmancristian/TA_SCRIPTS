@@ -1,0 +1,57 @@
+
+com.example.settingsautomator.SettingsTestSuite:....
+Error in test05_fail_openSoundSettings(com.example.settingsautomator.SettingsTestSuite):
+java.lang.NullPointerException: Attempt to invoke virtual method 'void androidx.test.uiautomator.UiObject2.click()' on a null object reference
+	at com.example.settingsautomator.SettingsTestSuite.test05_fail_openSoundSettings(SettingsTest.kt:87)
+.
+Error in test07_fail_findNonExistentSetting(com.example.settingsautomator.SettingsTestSuite):
+java.lang.AssertionError: The 'Teleportation' setting should not be null.
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at org.junit.Assert.assertNotNull(Assert.java:713)
+	at com.example.settingsautomator.SettingsTestSuite.test07_fail_findNonExistentSetting(SettingsTest.kt:107)
+
+Error in test08_fail_incorrectTextAssertion(com.example.settingsautomator.SettingsTestSuite):
+java.lang.NullPointerException: Attempt to invoke virtual method 'void androidx.test.uiautomator.UiObject2.click()' on a null object reference
+	at com.example.settingsautomator.SettingsTestSuite.test08_fail_incorrectTextAssertion(SettingsTest.kt:113)
+
+Error in test09_fail_assertingElementIsHidden(com.example.settingsautomator.SettingsTestSuite):
+java.lang.AssertionError: The 'Display' setting should be hidden, but it was found. expected null, but was:<androidx.test.uiautomator.UiObject2@91bb2f>
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.failNotNull(Assert.java:756)
+	at org.junit.Assert.assertNull(Assert.java:738)
+	at com.example.settingsautomator.SettingsTestSuite.test09_fail_assertingElementIsHidden(SettingsTest.kt:123)
+
+Error in test10_critical_forceNullPointerException(com.example.settingsautomator.SettingsTestSuite):
+java.lang.NullPointerException
+	at com.example.settingsautomator.SettingsTestSuite.test10_critical_forceNullPointerException(SettingsTest.kt:136)
+
+
+Time: 40.499
+There were 5 failures:
+1) test05_fail_openSoundSettings(com.example.settingsautomator.SettingsTestSuite)
+java.lang.NullPointerException: Attempt to invoke virtual method 'void androidx.test.uiautomator.UiObject2.click()' on a null object reference
+	at com.example.settingsautomator.SettingsTestSuite.test05_fail_openSoundSettings(SettingsTest.kt:87)
+2) test07_fail_findNonExistentSetting(com.example.settingsautomator.SettingsTestSuite)
+java.lang.AssertionError: The 'Teleportation' setting should not be null.
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at org.junit.Assert.assertNotNull(Assert.java:713)
+	at com.example.settingsautomator.SettingsTestSuite.test07_fail_findNonExistentSetting(SettingsTest.kt:107)
+3) test08_fail_incorrectTextAssertion(com.example.settingsautomator.SettingsTestSuite)
+java.lang.NullPointerException: Attempt to invoke virtual method 'void androidx.test.uiautomator.UiObject2.click()' on a null object reference
+	at com.example.settingsautomator.SettingsTestSuite.test08_fail_incorrectTextAssertion(SettingsTest.kt:113)
+4) test09_fail_assertingElementIsHidden(com.example.settingsautomator.SettingsTestSuite)
+java.lang.AssertionError: The 'Display' setting should be hidden, but it was found. expected null, but was:<androidx.test.uiautomator.UiObject2@91bb2f>
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.failNotNull(Assert.java:756)
+	at org.junit.Assert.assertNull(Assert.java:738)
+	at com.example.settingsautomator.SettingsTestSuite.test09_fail_assertingElementIsHidden(SettingsTest.kt:123)
+5) test10_critical_forceNullPointerException(com.example.settingsautomator.SettingsTestSuite)
+java.lang.NullPointerException
+	at com.example.settingsautomator.SettingsTestSuite.test10_critical_forceNullPointerException(SettingsTest.kt:136)
+
+FAILURES!!!
+Tests run: 10,  Failures: 5
+
+

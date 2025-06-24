@@ -13,3 +13,10 @@
 .externalNativeBuild
 .cxx
 local.properties
+node_modules
+screenshots
+result.json
+macOS_scripts/run_tests.sh
+*.png
+*.txt
+*.log
