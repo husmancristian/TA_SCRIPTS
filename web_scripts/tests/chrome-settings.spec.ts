@@ -19,19 +19,10 @@ test.describe('Simplified Chrome Settings Tests (3rd Revision)', () => {
       launchArgs.push('--disable-setuid-sandbox');
       launchArgs.push('--disable-dev-shm-usage');
       launchArgs.push('--disable-gpu');
-      // Added more stability flags
-      launchArgs.push('--disable-background-networking');
-      launchArgs.push('--disable-default-apps');
-      launchArgs.push('--disable-extensions');
-      launchArgs.push('--disable-sync');
-      launchArgs.push('--disable-translate');
-      launchArgs.push('--no-first-run');
-      launchArgs.push('--safeBrowse-disable-auto-update');
     }
-    // ------------------------------------------
 
     context = await chromium.launchPersistentContext(userDataDir, {
-      headless: true,
+      headless: false,
       args: launchArgs
     });
   });
