@@ -3,7 +3,7 @@ import json
 import subprocess
 import re
 import uuid
-import os  # <-- Import the 'os' module
+import os
 from datetime import datetime, timezone
 
 def clean_ansi_escape_codes(text):
@@ -15,10 +15,7 @@ def clean_ansi_escape_codes(text):
     return ansi_escape.sub('', text)
 
 def transform_playwright_result(playwright_json_str, details):
-    # This function remains exactly the same as before.
-    # ... (no changes needed in this function)
-    # It already correctly initializes "screenshots": []
-    # --- The full function from the previous answer goes here ---
+
     try:
         playwright_data = json.loads(playwright_json_str)
     except json.JSONDecodeError as e:
@@ -43,7 +40,7 @@ def transform_playwright_result(playwright_json_str, details):
         "passrate": "0.00%",
         "progress": f"{playwright_data['stats']['expected'] + playwright_data['stats']['unexpected']}/{playwright_data['stats']['expected'] + playwright_data['stats']['unexpected']}",
         "videos": [],
-        "screenshots": [], # This will be populated later
+        "screenshots": [],
         "metadata": {
             "test_cases": [],
             "suite_execution_summary": {
@@ -105,11 +102,6 @@ if __name__ == "__main__":
     except json.JSONDecodeError:
         print("Error: Invalid JSON provided as argument.", file=sys.stderr)
         sys.exit(1)
-
-    # Make sure the screenshots directory exists and is empty before the run
-    screenshots_dir = 'screenshots_web'
-    if not os.path.exists(screenshots_dir):
-        os.makedirs(screenshots_dir)
         
     web_scripts_dir = 'web_scripts'
     command = "npx playwright test chrome-settings.spec.ts --reporter=json"
@@ -122,31 +114,38 @@ if __name__ == "__main__":
         cwd=web_scripts_dir
     )
 
+    # ===================================================================
+    #  Write stdout and stderr to playwright_output.log
+    # ===================================================================
+    log_filename = "playwright_output.log"
+    print(f"Writing Playwright output to {log_filename}...", file=sys.stderr)
+    try:
+        with open(log_filename, 'w', encoding='utf-8') as log_file:
+            log_file.write("--- Playwright stdout ---\n")
+            log_file.write(process.stdout)
+            log_file.write("\n\n--- Playwright stderr ---\n")
+            log_file.write(process.stderr)
+    except IOError as e:
+        print(f"Error writing to log file: {e}", file=sys.stderr)
+    # ===================================================================
+
+
     if process.returncode != 0 and not process.stdout:
         sys.exit(1)
 
     final_json_result = transform_playwright_result(process.stdout, job_details)
 
-    # ===================================================================
-    # LOGIC TO FIND AND ADD SCREENSHOTS
-    # ===================================================================
     if final_json_result:
-        # Define the path to the screenshots folder relative to where this script is run
-        screenshots_dir_path = os.path.join(web_scripts_dir, screenshots_dir) # CHANGED
+        screenshots_dir_path = os.path.join(web_scripts_dir, 'screenshots_web')
         
         screenshot_paths = []
-        # Check if the directory exists
         if os.path.isdir(screenshots_dir_path):
-            # List all files in the directory
             for filename in os.listdir(screenshots_dir_path):
-                # Check for .png files
                 if filename.lower().endswith('.png'):
-                    # Create the full relative path for the JSON report
-                    path = os.path.join(screenshots_dir_path, filename).replace('\\', '/') # CHANGED
+                    path = os.path.join(screenshots_dir_path, filename).replace('\\', '/')
                     screenshot_paths.append(path)
         
         final_json_result['screenshots'] = screenshot_paths
-    # ===================================================================
 
     if final_json_result:
         print(json.dumps(final_json_result, indent=4))
