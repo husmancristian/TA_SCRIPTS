@@ -30,7 +30,7 @@ def transform_playwright_result(playwright_json_str, details):
     final_result = {
         "job_id": "",
         "status": "PASSED" if playwright_data['stats']['unexpected'] == 0 else "FAILED",
-        "project": "",
+        "project": "webApp",
         "details": details,
         "messages": ["Test suite initiated."],
         "logs": "playwright_output.txt",
