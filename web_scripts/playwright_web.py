@@ -102,10 +102,32 @@ if __name__ == "__main__":
     except json.JSONDecodeError:
         print("Error: Invalid JSON provided as argument.", file=sys.stderr)
         sys.exit(1)
-        
-    web_scripts_dir = 'web_scripts'
-    command = "npx playwright test chrome-settings.spec.ts --reporter=json"
     
+
+    web_scripts_dir = 'web_scripts'
+    containerized = os.getenv('CONTAINER')
+    if(containerized):
+        # print(f"Running 'npm install' inside '{web_scripts_dir}'...", file=sys.stderr)
+        npm_command = "npm install"
+        
+        install_process = subprocess.run(
+            npm_command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            cwd=web_scripts_dir # Run this command in the web_scripts directory
+        )
+
+        # Check if npm install was successful before proceeding
+        if install_process.returncode != 0:
+            print("Error: 'npm install' failed.", file=sys.stderr)
+            print("--- npm install stderr ---", file=sys.stderr)
+            print(install_process.stderr, file=sys.stderr)
+            sys.exit(1) # Exit immediately if dependencies can't be installed
+            
+        # print("'npm install' completed successfully.", file=sys.stderr)
+
+    command = "npx playwright test chrome-settings.spec.ts --reporter=json"
     process = subprocess.run(
         command, 
         shell=True, 
