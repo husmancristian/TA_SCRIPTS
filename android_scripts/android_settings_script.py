@@ -25,7 +25,7 @@ def run_command(command, shell=False):
         capture_output=True,
         text=True,
         check=False,
-        shell=shell
+        shell=shell,
         cwd='android_scripts'
     )
     if result.returncode != 0 and result.stderr:

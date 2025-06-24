@@ -111,33 +111,41 @@ if __name__ == "__main__":
     if not os.path.exists(screenshots_dir):
         os.makedirs(screenshots_dir)
         
+    web_scripts_dir = 'web_scripts'
     command = "npx playwright test chrome-settings.spec.ts --reporter=json"
-    # print("Running Playwright tests...", file=sys.stderr)
-    process = subprocess.run(command, shell=True, capture_output=True, text=True, cwd='web_scripts')
+    
+    process = subprocess.run(
+        command, 
+        shell=True, 
+        capture_output=True, 
+        text=True, 
+        cwd=web_scripts_dir
+    )
 
     if process.returncode != 0 and not process.stdout:
-        # print(f"Playwright execution failed with return code {process.returncode}.", file=sys.stderr)
-        # print(f"Stderr: {process.stderr}", file=sys.stderr)
         sys.exit(1)
 
-    # print("Transforming Playwright output...", file=sys.stderr)
     final_json_result = transform_playwright_result(process.stdout, job_details)
 
     # ===================================================================
-
+    # LOGIC TO FIND AND ADD SCREENSHOTS
     # ===================================================================
     if final_json_result:
-        # print("Looking for screenshots...", file=sys.stderr)
+        # Define the path to the screenshots folder relative to where this script is run
+        screenshots_dir_path = os.path.join(web_scripts_dir, 'screenshots') # CHANGED
+        
         screenshot_paths = []
-        if os.path.isdir(screenshots_dir):
-            for filename in os.listdir(screenshots_dir):
+        # Check if the directory exists
+        if os.path.isdir(screenshots_dir_path):
+            # List all files in the directory
+            for filename in os.listdir(screenshots_dir_path):
+                # Check for .png files
                 if filename.lower().endswith('.png'):
-                    # Create a relative path matching the desired format
-                    path = os.path.join('./screenshots', filename).replace('\\', '/')
+                    # Create the full relative path for the JSON report
+                    path = os.path.join(screenshots_dir_path, filename).replace('\\', '/') # CHANGED
                     screenshot_paths.append(path)
         
         final_json_result['screenshots'] = screenshot_paths
-        # print(f"Found {len(screenshot_paths)} screenshots.", file=sys.stderr)
     # ===================================================================
 
     if final_json_result:
