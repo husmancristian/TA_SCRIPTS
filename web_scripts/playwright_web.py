@@ -132,7 +132,7 @@ if __name__ == "__main__":
     # ===================================================================
     if final_json_result:
         # Define the path to the screenshots folder relative to where this script is run
-        screenshots_dir_path = os.path.join(web_scripts_dir, 'screenshots') # CHANGED
+        screenshots_dir_path = os.path.join(web_scripts_dir, screenshots_dir) # CHANGED
         
         screenshot_paths = []
         # Check if the directory exists
