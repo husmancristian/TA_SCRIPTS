@@ -120,7 +120,7 @@ if __name__ == "__main__":
         # print(f"Stderr: {process.stderr}", file=sys.stderr)
         sys.exit(1)
 
-    print("Transforming Playwright output...", file=sys.stderr)
+    # print("Transforming Playwright output...", file=sys.stderr)
     final_json_result = transform_playwright_result(process.stdout, job_details)
 
     # ===================================================================
@@ -137,7 +137,7 @@ if __name__ == "__main__":
                     screenshot_paths.append(path)
         
         final_json_result['screenshots'] = screenshot_paths
-        print(f"Found {len(screenshot_paths)} screenshots.", file=sys.stderr)
+        # print(f"Found {len(screenshot_paths)} screenshots.", file=sys.stderr)
     # ===================================================================
 
     if final_json_result:
