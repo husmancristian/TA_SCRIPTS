@@ -121,7 +121,7 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python3 playwright_web.py '<json_arguments>'", file=sys.stderr)
         sys.exit(1)
-        
+
     json_argument_string = " ".join(sys.argv[1:])
     
     try:
@@ -133,28 +133,31 @@ if __name__ == "__main__":
     
 
     web_scripts_dir = 'web_scripts'
+ 
+
+    # print(f"Running 'npm install' inside '{web_scripts_dir}'...", file=sys.stderr)
+    npm_command = "npm install"
+    
+    install_process = subprocess.run(
+        npm_command,
+        shell=True,
+        capture_output=True,
+        text=True,
+        cwd=web_scripts_dir # Run this command in the web_scripts directory
+    )
+
+    # Check if npm install was successful before proceeding
+    if install_process.returncode != 0:
+        print("Error: 'npm install' failed.", file=sys.stderr)
+        print("--- npm install stderr ---", file=sys.stderr)
+        print(install_process.stderr, file=sys.stderr)
+        sys.exit(1) # Exit immediately if dependencies can't be installed
+        
+
+    # print("'npm install' completed successfully.", file=sys.stderr)
+
     containerized = os.getenv('CONTAINER')
     if(containerized == 'true' ):
-        # print(f"Running 'npm install' inside '{web_scripts_dir}'...", file=sys.stderr)
-        npm_command = "npm install"
-        
-        install_process = subprocess.run(
-            npm_command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            cwd=web_scripts_dir # Run this command in the web_scripts directory
-        )
-
-        # Check if npm install was successful before proceeding
-        if install_process.returncode != 0:
-            print("Error: 'npm install' failed.", file=sys.stderr)
-            print("--- npm install stderr ---", file=sys.stderr)
-            print(install_process.stderr, file=sys.stderr)
-            sys.exit(1) # Exit immediately if dependencies can't be installed
-            
-        # print("'npm install' completed successfully.", file=sys.stderr)
-    
         command = "xvfb-run --auto-servernum npx playwright test chrome-settings.spec.ts --reporter=json"
     else:
         command = "npx playwright test chrome-settings.spec.ts --reporter=json"
