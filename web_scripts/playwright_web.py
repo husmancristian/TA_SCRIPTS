@@ -24,7 +24,7 @@ def graceful_shutdown_handler(signum, frame):
             # Send SIGTERM to the entire process group. This is what Ctrl+C does and
             # allows Playwright to generate its final report.
             if os.name != 'nt':
-                os.killpg(os.getpgid(playwright_process.pid), signal.SIGTERM)
+                os.killpg(os.getpgid(playwright_process.pid), signal.SIGINT)
             else: # Fallback for Windows
                 playwright_process.terminate()
         except ProcessLookupError:
@@ -122,7 +122,6 @@ def transform_playwright_result(playwright_json_str, details):
 if __name__ == "__main__":
     # Register the  non-exiting signal handler ---
     signal.signal(signal.SIGTERM, graceful_shutdown_handler)
-    signal.signal(signal.SIGINT, graceful_shutdown_handler) 
     if len(sys.argv) < 2:
         print("Usage: python3 playwright_web.py '<json_arguments>'", file=sys.stderr)
         sys.exit(1)
