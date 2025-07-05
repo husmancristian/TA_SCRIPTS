@@ -201,11 +201,14 @@ def main():
         print("   Example: python3 android_runner.py '{\"suite_name\": \"MySmokeTest\"}'", file=sys.stderr)
         sys.exit(1)
         
+    json_argument_string = " ".join(sys.argv[1:])
+        
     try:
-        runner_args = json.loads(sys.argv[1])
+        runner_args = json.loads(json_argument_string)
     except json.JSONDecodeError:
         # Usage errors are printed to stderr
         print("❌ USAGE ERROR: The provided argument is not a valid JSON string.", file=sys.stderr)
+        print(f"Attempted to parse: {json_argument_string}", file=sys.stderr)
         sys.exit(1)
 
     run_command(['adb', 'logcat', '-c'])

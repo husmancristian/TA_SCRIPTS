@@ -121,10 +121,14 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python3 playwright_web.py '<json_arguments>'", file=sys.stderr)
         sys.exit(1)
+        
+    json_argument_string = " ".join(sys.argv[1:])
+    
     try:
-        job_details = json.loads(sys.argv[1])
-    except json.JSONDecodeError:
+        job_details = json.loads(json_argument_string)
+    except json.JSONDecodeError as e:
         print("Error: Invalid JSON provided as argument.", file=sys.stderr)
+        print(f"Attempted to parse: {json_argument_string}", file=sys.stderr)
         sys.exit(1)
     
 
