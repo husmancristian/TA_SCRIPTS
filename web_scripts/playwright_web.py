@@ -8,24 +8,29 @@ from datetime import datetime, timezone
 import signal
 
 playwright_process = None
+termination_signal_received = False
 
-def cleanup_and_exit(signum, frame):
-    """Signal handler to stop Playwright and all its child processes."""
-    print("Termination signal received, stopping Playwright...", file=sys.stderr)
-    global playwright_process
+def graceful_shutdown_handler(signum, frame):
+    """Signal handler to gracefully stop Playwright and let the main script handle the output."""
+    global playwright_process, termination_signal_received
+    
+    # Set the flag so the main loop knows why the process is ending
+    if not termination_signal_received:
+        print("Termination signal received, attempting graceful shutdown of Playwright...", file=sys.stderr)
+        termination_signal_received = True
+
     if playwright_process and playwright_process.poll() is None:
         try:
-            # On Unix-like systems, kill the entire process group.
+            # Send SIGTERM to the entire process group. This is what Ctrl+C does and
+            # allows Playwright to generate its final report.
             if os.name != 'nt':
-                print(f"Killing process group with PGID: {playwright_process.pid}", file=sys.stderr)
                 os.killpg(os.getpgid(playwright_process.pid), signal.SIGTERM)
             else: # Fallback for Windows
                 playwright_process.terminate()
         except ProcessLookupError:
-            # Process may have already finished between the check and the kill command
             print("Process already terminated.", file=sys.stderr)
             pass
-    sys.exit(1)
+
 
 def clean_ansi_escape_codes(text):
     """
@@ -115,8 +120,8 @@ def transform_playwright_result(playwright_json_str, details):
 
 
 if __name__ == "__main__":
-    # --- MODIFICATION: Register the signal handler ---
-    signal.signal(signal.SIGTERM, cleanup_and_exit)
+    # Register the  non-exiting signal handler ---
+    signal.signal(signal.SIGTERM, graceful_shutdown_handler)
     
     if len(sys.argv) < 2:
         print("Usage: python3 playwright_web.py '<json_arguments>'", file=sys.stderr)
@@ -131,39 +136,29 @@ if __name__ == "__main__":
         print(f"Attempted to parse: {json_argument_string}", file=sys.stderr)
         sys.exit(1)
     
-
     web_scripts_dir = 'web_scripts'
  
-
-    # print(f"Running 'npm install' inside '{web_scripts_dir}'...", file=sys.stderr)
     npm_command = "npm install"
-    
     install_process = subprocess.run(
         npm_command,
         shell=True,
         capture_output=True,
         text=True,
-        cwd=web_scripts_dir # Run this command in the web_scripts directory
+        cwd=web_scripts_dir
     )
 
-    # Check if npm install was successful before proceeding
     if install_process.returncode != 0:
         print("Error: 'npm install' failed.", file=sys.stderr)
         print("--- npm install stderr ---", file=sys.stderr)
         print(install_process.stderr, file=sys.stderr)
-        sys.exit(1) # Exit immediately if dependencies can't be installed
+        sys.exit(1)
         
-
-    # print("'npm install' completed successfully.", file=sys.stderr)
-
     containerized = os.getenv('CONTAINER')
     if(containerized == 'true' ):
         command = "xvfb-run --auto-servernum npx playwright test chrome-settings.spec.ts --reporter=json"
     else:
         command = "npx playwright test chrome-settings.spec.ts --reporter=json"
 
-    # On Unix, preexec_fn=os.setsid creates a new process group.
-    # This allows us to kill the parent and all its children (browsers) at once.
     preexec_fn = os.setsid if os.name != 'nt' else None
     
     playwright_process = subprocess.Popen(
@@ -176,16 +171,11 @@ if __name__ == "__main__":
         preexec_fn=preexec_fn
     )
     
-    # Wait for completion and capture output
     stdout_data, stderr_data = playwright_process.communicate()
     return_code = playwright_process.returncode
-    playwright_process = None # Clear global variable
+    playwright_process = None
 
-    # ===================================================================
-    #  Write stdout and stderr to playwright_output.log
-    # ===================================================================
     log_filename = "playwright_output.txt"
-    # print(f"Writing Playwright output to {log_filename}...", file=sys.stderr)
     try:
         with open(log_filename, 'w', encoding='utf-8') as log_file:
             log_file.write("--- Playwright stdout ---\n")
@@ -194,25 +184,36 @@ if __name__ == "__main__":
             log_file.write(stderr_data)
     except IOError as e:
         print(f"Error writing to log file: {e}", file=sys.stderr)
-    # ===================================================================
 
-    # Exit if the command failed and produced no parsable output
-    if return_code != 0 and not stdout_data:
+    # The main logic for handling results after termination ---
+    # We attempt to parse the output even if the return code is non-zero,
+    # as an aborted run is expected to have a non-zero exit code.
+    if not stdout_data:
+        if termination_signal_received:
+            print("Error: Playwright was aborted but produced no output.", file=sys.stderr)
+        else:
+            print("Error: Playwright command failed and produced no output.", file=sys.stderr)
         sys.exit(1)
 
     final_json_result = transform_playwright_result(stdout_data, job_details)
 
     if final_json_result:
+        # If the run was aborted, override the status and add a message.
+        if termination_signal_received:
+            final_json_result['status'] = 'ABORTED'
+            final_json_result['messages'].append("Test run was aborted by a termination signal.")
+
         screenshots_dir_path = os.path.join(web_scripts_dir, 'screenshots_web')
-        
         screenshot_paths = []
         if os.path.isdir(screenshots_dir_path):
             for filename in os.listdir(screenshots_dir_path):
                 if filename.lower().endswith('.png'):
                     path = os.path.join(screenshots_dir_path, filename).replace('\\', '/')
                     screenshot_paths.append(path)
-        
         final_json_result['screenshots'] = screenshot_paths
-
-    if final_json_result:
+        
         print(json.dumps(final_json_result, indent=4))
+    else:
+        # This will be reached if transform_playwright_result returned None
+        print("Error: Could not parse Playwright's JSON output.", file=sys.stderr)
+        sys.exit(1)
