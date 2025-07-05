@@ -6,6 +6,7 @@ from datetime import datetime
 import uuid
 import os
 import sys
+import signal
 
 # --- Configuration ---
 TEST_PACKAGE_NAME = 'com.example.settingsautomator.test'
@@ -15,6 +16,8 @@ TEST_RUNNER_COMPONENT = f'{TEST_PACKAGE_NAME}/androidx.test.runner.AndroidJUnitR
 OUTPUT_JSON_FILE = 'result.json'
 SCREENSHOT_PULL_DIR = './screenshots'
 LOG_OUTPUT_FILE = 'debug_log.txt'
+
+instrumentation_process = None
 
 
 def run_command(command, shell=False):
@@ -33,6 +36,23 @@ def run_command(command, shell=False):
         print(f"❌ ERROR running command: {' '.join(command) if not shell else command}", file=sys.stderr)
         print(f"   Stderr: {result.stderr}", file=sys.stderr)
     return result.stdout.strip(), result.stderr.strip()
+
+# --- MODIFICATION: Signal handler for graceful termination ---
+def cleanup_and_exit(signum, frame):
+    """Signal handler to stop the test and exit gracefully."""
+    print("Termination signal received, attempting to stop the Android test...", file=sys.stderr)
+    global instrumentation_process
+    if instrumentation_process:
+        # 1. Force-stop the test package on the Android device
+        print(f"Stopping test package '{TEST_PACKAGE_NAME}' on device.", file=sys.stderr)
+        run_command(['adb', 'shell', 'am', 'force-stop', TEST_PACKAGE_NAME])
+        
+        # 2. Terminate the host-side 'adb instrument' command
+        print("Terminating host-side ADB process.", file=sys.stderr)
+        instrumentation_process.terminate()
+        
+    sys.exit(1)
+
 
 def get_environment_snapshot():
     """Gets device information using ADB."""
@@ -93,7 +113,6 @@ def generate_json_report(summary_output, verbose_output, env_snapshot, screensho
         end_time_dt = datetime.strptime(f"{current_year}-{timestamps[-1]}", "%Y-%m-%d %H:%M:%S.%f")
         report["duration_seconds"] = round((end_time_dt - start_time_dt).total_seconds(), 3)
 
-    # --- MODIFIED: Logic to parse test cases and calculate duration ---
     test_cases = []
     test_map = {}  # To map test names to their index in the test_cases list
     
@@ -174,6 +193,8 @@ def generate_json_report(summary_output, verbose_output, env_snapshot, screensho
 
 def main():
     """Main function to run the test suite and process results."""
+    signal.signal(signal.SIGTERM, cleanup_and_exit)
+    
     if len(sys.argv) < 2:
         # Usage errors are printed to stderr
         print("❌ USAGE ERROR: Please provide the runner details as a JSON string argument.", file=sys.stderr)
@@ -189,7 +210,20 @@ def main():
 
     run_command(['adb', 'logcat', '-c'])
     
-    summary_output, summary_error = run_command(['adb', 'shell', 'am', 'instrument', '-w', TEST_RUNNER_COMPONENT])
+    # --- MODIFICATION: Use subprocess.Popen to run the test ---
+    global instrumentation_process
+    command = ['adb', 'shell', 'am', 'instrument', '-w', TEST_RUNNER_COMPONENT]
+    instrumentation_process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        cwd='android_scripts'
+    )
+    # Wait for the process to complete and get the output
+    summary_output, summary_error = instrumentation_process.communicate()
+    # Clear the global variable once the process is done
+    instrumentation_process = None
     
     if "FAILURES!!!" not in summary_output and "OK" not in summary_output:
         # Execution errors are printed to stderr
