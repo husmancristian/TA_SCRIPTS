@@ -41,7 +41,9 @@ def clean_ansi_escape_codes(text):
     return ansi_escape.sub('', text)
 
 def transform_playwright_result(playwright_json_str, details):
-
+    """
+    Transforms the raw Playwright JSON output into the final, structured test result.
+    """
     try:
         playwright_data = json.loads(playwright_json_str)
     except json.JSONDecodeError as e:
@@ -49,13 +51,59 @@ def transform_playwright_result(playwright_json_str, details):
         print(f"Received data: {playwright_json_str}", file=sys.stderr)
         return None
 
+    def get_test_status(spec):
+        """
+        Determines the correct test status by inspecting the detailed results,
+        not just the 'ok' boolean.
+        """
+        # Guard against malformed spec objects
+        if not spec.get('tests'):
+            return 'SKIPPED'
+
+        test_run = spec['tests'][0]
+        
+        # A test is purely 'skipped' if it has no results and its status is 'skipped'.
+        if test_run.get('status') == 'skipped' and not test_run.get('results'):
+            return 'SKIPPED'
+            
+        # If there are results, that's the most reliable source of truth.
+        if test_run.get('results'):
+            run_result = test_run['results'][0]
+            pw_status = run_result.get('status')  # e.g., 'passed', 'failed', 'timedOut', 'interrupted'
+
+            if pw_status == 'passed':
+                return 'PASSED'
+            # Treat 'interrupted' as 'SKIPPED' in the final report.
+            elif pw_status == 'interrupted':
+                return 'SKIPPED'
+            # Any other non-passed status is a failure.
+            else:
+                return 'FAILED'
+        
+        # Fallback for any other case
+        return 'FAILED'
+
     run_start_time = datetime.fromisoformat(playwright_data['stats']['startTime'].replace('Z', '+00:00'))
     run_duration = playwright_data['stats']['duration'] / 1000.0
     run_end_time = datetime.fromtimestamp(run_start_time.timestamp() + run_duration, tz=timezone.utc)
 
+    # The stats object from Playwright gives the correct top-level counts
+    stats = playwright_data.get('stats', {})
+    total_run = stats.get('expected', 0) + stats.get('unexpected', 0) + stats.get('flaky', 0)
+    passed_count = stats.get('expected', 0)
+    failed_count = stats.get('unexpected', 0) + stats.get('flaky', 0)
+    skipped_count = stats.get('skipped', 0)
+    
+    # Determine overall status from stats
+    overall_status = "PASSED"
+    if failed_count > 0:
+        overall_status = "FAILED"
+    elif total_run == 0 and skipped_count > 0:
+        overall_status = "SKIPPED"
+    
     final_result = {
         "job_id": "",
-        "status": "PASSED" if playwright_data['stats']['unexpected'] == 0 else "FAILED",
+        "status": overall_status, # Use status derived from stats
         "project": "webApp",
         "details": details,
         "messages": ["Test suite initiated."],
@@ -64,18 +112,18 @@ def transform_playwright_result(playwright_json_str, details):
         "ended_at": run_end_time.isoformat().replace('+00:00', 'Z'),
         "duration_seconds": round(run_duration, 3),
         "passrate": "0.00%",
-        "progress": f"{playwright_data['stats']['expected'] + playwright_data['stats']['unexpected']}/{playwright_data['stats']['expected'] + playwright_data['stats']['unexpected']}",
+        "progress": f"{total_run}/{total_run + skipped_count}",
         "videos": [],
         "screenshots": [],
         "metadata": {
             "test_cases": [],
             "suite_execution_summary": {
-                "total_tests": playwright_data['stats']['expected'] + playwright_data['stats']['unexpected'],
-                "passed": playwright_data['stats']['expected'],
-                "failed": playwright_data['stats']['unexpected'],
-                "skipped": playwright_data['stats']['skipped'],
+                "total_tests": total_run + skipped_count,
+                "passed": passed_count,
+                "failed": failed_count,
+                "skipped": skipped_count,
                 "retest": 0,
-                "failed_critical": playwright_data['stats']['unexpected']
+                "failed_critical": failed_count
             },
             "environment_snapshot": {
                 "device_type": "Desktop",
@@ -95,13 +143,15 @@ def transform_playwright_result(playwright_json_str, details):
             return specs
         all_specs = find_specs(suite)
         for i, spec in enumerate(all_specs):
+            test_status = get_test_status(spec)
             test_case = {
                 "id": f"TC{i+1:02d}",
                 "name": spec['title'].replace('.', '_').replace(' ', ''),
-                "status": "PASSED" if spec['ok'] else "FAILED",
+                "status": test_status,
                 "logs": ""
             }
-            if not spec['ok']:
+            # Only look for error logs if the test actually failed.
+            if test_status == 'FAILED' and spec['tests'][0].get('results'):
                 error_details = spec['tests'][0]['results'][0].get('error', {})
                 error_message = clean_ansi_escape_codes(error_details.get('message', 'No error message found.'))
                 error_stack = clean_ansi_escape_codes(error_details.get('stack', 'No stack trace found.'))
@@ -117,7 +167,6 @@ def transform_playwright_result(playwright_json_str, details):
 
     final_result["messages"].append("Test suite finished.")
     return final_result
-
 
 if __name__ == "__main__":
     # Register the  non-exiting signal handler ---
