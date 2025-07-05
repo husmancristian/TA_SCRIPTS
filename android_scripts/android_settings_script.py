@@ -17,7 +17,6 @@ SCREENSHOT_PULL_DIR = './screenshots'
 LOG_OUTPUT_FILE = 'debug_log.txt'
 
 instrumentation_process = None
-#  Add a global flag to know if the script was aborted ---
 termination_signal_received = False
 
 
@@ -38,23 +37,22 @@ def run_command(command, shell=False):
 
 
 def cleanup_and_exit(signum, frame):
-    """Signal handler to stop the test and allow the script to generate an aborted report."""
+    """Signal handler to stop the test and let the main script handle the output."""
     global instrumentation_process, termination_signal_received
     if not termination_signal_received:
         print("Termination signal received, stopping the Android test...", file=sys.stderr)
         termination_signal_received = True
 
-    if instrumentation_process:
+    if instrumentation_process and instrumentation_process.poll() is None:
         print(f"Stopping test package '{TEST_PACKAGE_NAME}' on device.", file=sys.stderr)
         run_command(['adb', 'shell', 'am', 'force-stop', TEST_PACKAGE_NAME])
         
         print("Terminating host-side ADB process.", file=sys.stderr)
         instrumentation_process.terminate()
-        
 
 
 def generate_aborted_report(runner_args, log_file_path):
-    """Creates and returns a JSON report for a run that was manually aborted."""
+    """Creates a JSON report for an aborted run, salvaging test info from logcat."""
     print("Generating a report for the aborted test run...", file=sys.stderr)
     
     # Get what information we can
@@ -66,6 +64,22 @@ def generate_aborted_report(runner_args, log_file_path):
         f.write("--- TEST RUN ABORTED BY SIGNAL ---\n\n")
         f.write("--- Verbose Log (from logcat) ---\n" + verbose_output)
 
+    test_cases = []
+    log_pattern = re.compile(r".*?I TestRunner: started: (.*?)\(com")
+    for line in verbose_output.splitlines():
+        match = log_pattern.search(line)
+        if match:
+            test_name = match.group(1)
+            # Mark any test that started but didn't finish as 'SKIPPED'
+            test_cases.append({
+                "id": test_name.split('_')[0],
+                "name": ' '.join(word.capitalize() for word in test_name.split('_')[1:]),
+                "status": "SKIPPED", 
+                "logs": "Test was running when the suite was aborted.",
+                "duration_ms": 0
+            })
+    # --- End of new logic ---
+
     report = {
         "job_id": runner_args.get("job_id", str(uuid.uuid4())),
         "status": "ABORTED",
@@ -76,8 +90,9 @@ def generate_aborted_report(runner_args, log_file_path):
         "videos": [],
         "screenshots": screenshot_files,
         "metadata": {
-            "test_cases": [],
-            "suite_execution_summary": { "total_tests": 0, "passed": 0, "failed": 0, "skipped": 0, "retest": 0, "failed_critical": 0 },
+            # Add the partially recovered test cases
+            "test_cases": [{runner_args.get("suite_name", "UnknownSuite"): test_cases}],
+            "suite_execution_summary": { "total_tests": len(test_cases), "passed": 0, "failed": 0, "skipped": len(test_cases), "retest": 0, "failed_critical": 0 },
             "environment_snapshot": env_snapshot
         }
     }
@@ -91,26 +106,17 @@ def get_environment_snapshot():
     """Gets device information using ADB."""
     model, _ = run_command(['adb', 'shell', 'getprop', 'ro.product.model'])
     os_version, _ = run_command(['adb', 'shell', 'getprop', 'ro.build.version.release'])
-    
-    snapshot = {
-        "device_type": model or "Unknown",
-        "os": f"Android {os_version}" if os_version else "Unknown OS"
-    }
-    return snapshot
+    return {"device_type": model or "Unknown", "os": f"Android {os_version}" if os_version else "Unknown OS"}
 
 def pull_screenshots_from_device():
     """Pulls screenshot files from the test app's private storage."""
     if not os.path.exists(SCREENSHOT_PULL_DIR):
         os.makedirs(SCREENSHOT_PULL_DIR)
-        
     run_command(['adb', 'pull', f'/sdcard/android/data/{PACKAGE_NAME}/files/.', SCREENSHOT_PULL_DIR])
-    
     pulled_files = []
     if os.path.exists(SCREENSHOT_PULL_DIR):
         pulled_files = [os.path.join(SCREENSHOT_PULL_DIR, f).replace('\\', '/') for f in os.listdir(SCREENSHOT_PULL_DIR) if f.endswith('.png')]
-    
     return pulled_files
-
 
 def generate_json_report(summary_output, verbose_output, env_snapshot, screenshot_files, runner_args, log_file_path):
     """
@@ -216,23 +222,19 @@ def generate_json_report(summary_output, verbose_output, env_snapshot, screensho
     
     return report
 
-
 def main():
     """Main function to run the test suite and process results."""
     signal.signal(signal.SIGTERM, cleanup_and_exit)
     
     if len(sys.argv) < 2:
         print("❌ USAGE ERROR: Please provide the runner details as a JSON string argument.", file=sys.stderr)
-        print("   Example: python3 android_runner.py '{\"suite_name\": \"MySmokeTest\"}'", file=sys.stderr)
         sys.exit(1)
         
     json_argument_string = " ".join(sys.argv[1:])
-        
     try:
         runner_args = json.loads(json_argument_string)
     except json.JSONDecodeError:
         print("❌ USAGE ERROR: The provided argument is not a valid JSON string.", file=sys.stderr)
-        print(f"Attempted to parse: {json_argument_string}", file=sys.stderr)
         sys.exit(1)
 
     run_command(['adb', 'logcat', '-c'])
@@ -252,8 +254,7 @@ def main():
     if termination_signal_received:
         report_data = generate_aborted_report(runner_args, LOG_OUTPUT_FILE)
         print(json.dumps(report_data, indent=4))
-        # We exit here because a normal report cannot be generated.
-        sys.exit(0)
+        sys.exit(0) # Exit successfully after generating the aborted report.
     
     if "FAILURES!!!" not in summary_output and "OK" not in summary_output:
         print("Encountered a critical error during test execution. Aborting.", file=sys.stderr)
@@ -261,18 +262,13 @@ def main():
         return
 
     time.sleep(2) 
-
     env_snapshot = get_environment_snapshot()
     screenshot_files = pull_screenshots_from_device()
-    
     verbose_output, _ = run_command(['adb', 'logcat', '-d', '-s', 'TestRunner'])
-
     with open(LOG_OUTPUT_FILE, 'w') as f:
         f.write("--- Summary Report (from am instrument) ---\n" + summary_output + "\n\n")
         f.write("--- Verbose Log (from logcat) ---\n" + verbose_output)
-
     report_data = generate_json_report(summary_output, verbose_output, env_snapshot, screenshot_files, runner_args, LOG_OUTPUT_FILE)
-    
     print(json.dumps(report_data, indent=4))
 
 if __name__ == "__main__":
