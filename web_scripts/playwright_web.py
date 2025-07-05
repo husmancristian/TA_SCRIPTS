@@ -260,6 +260,17 @@ if __name__ == "__main__":
                     screenshot_paths.append(path)
         final_json_result['screenshots'] = screenshot_paths
         
+        if os.path.exists(log_filename):
+            # Ensure the 'logs' field contains the correct relative path.
+            final_json_result['logs'] = log_filename
+            print(f"Log file '{log_filename}' found and added to report.", file=sys.stderr)
+        else:
+            # If the log file wasn't created for some reason, clear the field.
+            final_json_result['logs'] = ""
+            print(f"Warning: Log file '{log_filename}' not found.", file=sys.stderr)
+
+
+
         print(json.dumps(final_json_result, indent=4))
     else:
         # This will be reached if transform_playwright_result returned None
